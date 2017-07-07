@@ -1,5 +1,7 @@
+module Test.AllStarTests where
+
 import Test.HUnit
-import AllStar
+import ParserGenerator.AllStar
 
 --------------------------------TESTING-----------------------------------------
 
@@ -25,55 +27,67 @@ atnA = [[(INIT 'A', EPS, CHOICE 'A' 1),
 atnEnv = [(NT 'S', atnS), (NT 'A', atnA)]
 
 
+-- For now, I'm only checking whether the input was accepted--not checking the derivation.
+
 -- Example from the manual trace of ALL(*)'s execution
 parseTest1 = TestCase (assertEqual "for parse [a, b, c],"
-                              (Just True, [])
-                              (parse ['a', 'b', 'c'] (NT 'S') atnEnv))
+                                   (Just True)
+                                   (let (accepted, _) = parse ['a', 'b', 'c'] (NT 'S') atnEnv
+                                    in  accepted))
 
 
 -- Example #1 from the ALL(*) paper
 parseTest2 = TestCase (assertEqual "for parse [b, c],"
-                              (Just True, [])
-                              (parse ['b', 'c'] (NT 'S') atnEnv))
+                                   (Just True)
+                                   (let (accepted, _) = parse ['b', 'c'] (NT 'S') atnEnv
+                                    in  accepted))
 
 -- Example #2 from the ALL(*) paper
 parseTest3 = TestCase (assertEqual "for parse [b, d],"
-                              (Just True, [])
-                              (parse ['b', 'd'] (NT 'S') atnEnv))
+                                   (Just True)
+                                   (let (accepted, _) = parse ['b', 'd'] (NT 'S') atnEnv
+                                    in  accepted))
 
 -- Input that requires more recursive traversals of the A ATN
 parseTest4 = TestCase (assertEqual "for parse [a a a a b c],"
-                              (Just True, [])
-                              (parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv))
+                                   (Just True)
+                                   (let (accepted, _) = parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv
+                                    in  accepted))
 
 parseTest5 = TestCase (assertEqual "for parse [a b a c],"
-                              (Just True, [])
-                              (parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv))
+                                   (Just True)
+                                   (let (accepted, _) = parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv
+                                    in  accepted))
 
 conflictsTest = TestCase (assertEqual "for getConflictSetsPerLoc()"
                          
-                                         ([[(MIDDLE 5, 1, []), (MIDDLE 5, 2, []),(MIDDLE 5, 3, [])],
-                                           [(MIDDLE 5, 1, [MIDDLE 1]), (MIDDLE 5, 2, [MIDDLE 1])],
-                                           [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]])
+                                      ([[(MIDDLE 5, 1, []), (MIDDLE 5, 2, []),(MIDDLE 5, 3, [])],
+                                        [(MIDDLE 5, 1, [MIDDLE 1]), (MIDDLE 5, 2, [MIDDLE 1])],
+                                        [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]])
                                          
-                                         (getConflictSetsPerLoc (D [(MIDDLE 5, 1, []),
-                                                                    (MIDDLE 5, 2, []),
-                                                                    (MIDDLE 5, 3, []),
-                                                                    (MIDDLE 5, 1, [MIDDLE 1]),
-                                                                    (MIDDLE 5, 2, [MIDDLE 1]),
-                                                                    (MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])])))
+                                      (getConflictSetsPerLoc (D [(MIDDLE 5, 1, []),
+                                                                 (MIDDLE 5, 2, []),
+                                                                 (MIDDLE 5, 3, []),
+                                                                 (MIDDLE 5, 1, [MIDDLE 1]),
+                                                                 (MIDDLE 5, 2, [MIDDLE 1]),
+                                                                 (MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])])))
 
 prodsTest = TestCase (assertEqual "for getProdSetsPerState()"
                      
-                                         ([[(MIDDLE 5, 1, []), (MIDDLE 5, 2, []),(MIDDLE 5, 3, []), (MIDDLE 5, 1, [MIDDLE 1]), (MIDDLE 5, 2, [MIDDLE 1])],
-                                           [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]])
+                                  ([[(MIDDLE 5, 1, []),
+                                     (MIDDLE 5, 2, []),
+                                     (MIDDLE 5, 3, []),
+                                     (MIDDLE 5, 1, [MIDDLE 1]),
+                                     (MIDDLE 5, 2, [MIDDLE 1])],
+                                     
+                                    [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]])
                                          
-                                         (getProdSetsPerState (D [(MIDDLE 5, 1, []),
-                                                                  (MIDDLE 5, 2, []),
-                                                                  (MIDDLE 5, 3, []),
-                                                                  (MIDDLE 5, 1, [MIDDLE 1]),
-                                                                  (MIDDLE 5, 2, [MIDDLE 1]),
-                                                                  (MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])])))
+                                  (getProdSetsPerState (D [(MIDDLE 5, 1, []),
+                                                           (MIDDLE 5, 2, []),
+                                                           (MIDDLE 5, 3, []),
+                                                           (MIDDLE 5, 1, [MIDDLE 1]),
+                                                           (MIDDLE 5, 2, [MIDDLE 1]),
+                                                           (MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])])))
 
 
 ambigATN = [[(INIT 'S', EPS, CHOICE 'S' 1),
@@ -92,12 +106,14 @@ ambigATN = [[(INIT 'S', EPS, CHOICE 'S' 1),
 ambigEnv = [(NT 'S', ambigATN)]
 
 ambigParseTest1 = TestCase (assertEqual "for parse [a],"
-                                        (Just True, [])
-                                        (parse ['a'] (NT 'S') ambigEnv))
+                                        (Just True)
+                                        (let (accepted, _) = parse ['a'] (NT 'S') ambigEnv
+                                         in  accepted))
 
 ambigParseTest2 = TestCase (assertEqual "for parse [a b],"
-                                        (Just True, [])
-                                        (parse ['a', 'b'] (NT 'S') ambigEnv))
+                                        (Just True)
+                                        (let (accepted, _) = parse ['a', 'b'] (NT 'S') ambigEnv
+                                         in  accepted))
 
 
         
