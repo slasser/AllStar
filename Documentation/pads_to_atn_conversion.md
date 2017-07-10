@@ -1,6 +1,6 @@
-### Pads to ATN Conversion
+# Pads to ATN Conversion
 
-#### I. Overview of evaluation process for Pads descriptions
+## I. Overview of evaluation process for Pads descriptions
 
 The following example walks through the sequence of actions performed when this
 Pads description is evaluated:
@@ -67,7 +67,7 @@ myChar_parseS function is a partial application of PadsParser.parseStringInput
 to myChar_parseM; the resulting function uses myChar_parseM to parse string
 input.
 
-#### II. Generating parse functions from Pads descriptions, in detail
+## II. Generating parse functions from Pads descriptions, in detail
 
 This section describes how the Haskell AST for myChar_parseM is created from the MyChar Pads declaration.
 
@@ -210,4 +210,163 @@ correspond to a predefined Pads function name, a compile-time error occurs.
       ‘int_parseM’ (imported from Language.Pads.Padsc),
       ‘try_parseM’ (imported from Language.Pads.Padsc)
 ```
+## III. Internal representations of other Pads descriptions
+
+This section describes the internal representations of several Pads
+descriptions from First.hs. The goal is to provide examples of the
+different Pads types, which are shown below:
+
+```haskell
+data PadsTy = PConstrain Pat PadsTy Exp
+            | PTransform PadsTy PadsTy Exp
+            | PList PadsTy (Maybe PadsTy) (Maybe TermCond)
+            | PPartition PadsTy Exp
+            | PValue Exp PadsTy
+            | PApp [PadsTy] (Maybe Exp)
+            | PTuple [PadsTy] 
+            | PExpression Exp
+            | PTycon QString
+            | PTyvar String
+   deriving (Eq, Data, Typeable, Show)
+```
+
+### 1. PTycon, PExpression, and PTuple
+
+In the example from Sections I and II, the MyChar Pads description has a PTycon ["Char"] representation.
+The IntPair Pads description below has a representation that combines PTycon, PExpression,
+and PTuple types.
+
+```haskell
+[pads| type IntPair = (Int, '|', Int) |]
+
+*Main> let intPairPD = parsePadsString typeDecl "type IntPair = (Int, '|', Int)"
+*Main> 
+*Main> intPairPD
+PadsDeclType "IntPair" [] Nothing (PTuple [PTycon ["Int"],PExpression (LitE (CharL '|')),PTycon ["Int"]])
+*Main> 
+*Main> let intPair_parseM_body = genParseTy (PTuple [PTycon ["Int"],PExpression (LitE (CharL '|')),PTycon ["Int"]])
+*Main> 
+*Main> runQ intPair_parseM_body
+LetE [FunD f_rep [Clause [VarP x1,VarP x3] (NormalB (TupE [VarE x1,VarE x3])) []],FunD f_md [Clause [VarP x1,VarP x2,VarP x3] (NormalB (TupE [AppE (VarE Language.Pads.MetaData.mergeBaseMDs) (ListE [AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x1),AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x2),AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x3)]),TupE [VarE x1,VarE x2,VarE x3]])) []]] (InfixE (Just (InfixE (Just (InfixE (Just (AppE (VarE GHC.Base.return) (TupE [VarE f_rep,VarE f_md]))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE int_parseM)))) (VarE Language.Pads.PadsParser.=@) (Just (AppE (VarE Language.Pads.CoreBaseTypes.litParse) (LitE (CharL '|')))))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE int_parseM)))
+```
+
+The abstract syntax is complicated, but it looks like the important parts are the calls to int_parseM,
+litParse (partially applied to the character '|'), and int_parseM again. 
+
+To see more clearly how the PExpression Pads type is handled, we can write a simpler
+Pads description that includes a single character: 
+
+```haskell
+*Main> let myPipePD = parsePadsString typeDecl "type MyPipe = '|'"
+*Main> 
+*Main> myPipePD
+PadsDeclType "MyPipe" [] Nothing (PExpression (LitE (CharL '|')))
+*Main> 
+*Main> let myPipe_parseM_body = genParseTy (PExpression (LitE (CharL '|')))
+*Main> 
+*Main> runQ myPipe_parseM_body
+AppE (VarE Language.Pads.CoreBaseTypes.litParse) (LitE (CharL '|'))
+```
+
+The body of the myPipe_parseM function is just the partial application of the
+litParse function to the LitE wrapped by the PExpression.
+
+Here is a simpler example of a PTuple:
+
+```haskell
+*Main> let charPairPD = parsePadsString typeDecl "type CharPair = (Char, Char)"
+*Main> 
+*Main> charPairPD 
+PadsDeclType "CharPair" [] Nothing (PTuple [PTycon ["Char"],PTycon ["Char"]])
+*Main> 
+*Main> let charPair_parseM_body = genParseTy (PTuple [PTycon ["Char"],PTycon ["Char"]])
+*Main> 
+*Main> runQ charPair_parseM_body 
+LetE [FunD f_rep [Clause [VarP x1,VarP x2] (NormalB (TupE [VarE x1,VarE x2])) []],FunD f_md [Clause [VarP x1,VarP x2] (NormalB (TupE [AppE (VarE Language.Pads.MetaData.mergeBaseMDs) (ListE [AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x1),AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x2)]),TupE [VarE x1,VarE x2]])) []]] (InfixE (Just (InfixE (Just (AppE (VarE GHC.Base.return) (TupE [VarE f_rep,VarE f_md]))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE char_parseM)))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE char_parseM)))
+```
+
+### 2. References to other Pads types
+
+This example shows the internal representation of a Pads type
+that makes reference to a previously defined Pads type.
+
+```haskell
+*Main> let barPD = parsePadsString typeDecl "type Bar = (Int, ',', IntPair, ';', Int)"
+*Main> 
+*Main> barPD
+PadsDeclType "Bar" [] Nothing (PTuple [PTycon ["Int"],PExpression (LitE (CharL ',')),PTycon ["IntPair"],PExpression (LitE (CharL ';')),PTycon ["Int"]])
+```
+
+The reference to the IntPair Pads type is represented as a PTycon ["IntPair"].
+
+### 3. PApp and PTyvar
+
+The representation of the Baz type below is an application (PApp) of an
+existing Pads type constructor, Line, to another Pads type.
+
+```haskell
+*Main> let bazPD = parsePadsString typeDecl "type Baz = Line (Int, ',', Int)"
+*Main> 
+*Main> bazPD
+PadsDeclType "Baz" [] Nothing (PApp [PTycon ["Line"],PTuple [PTycon ["Int"],PExpression (LitE (CharL ',')),PTycon ["Int"]]] Nothing)
+*Main> 
+*Main> let baz_parseM_body = genParseTy (PApp [PTycon ["Line"],PTuple [PTycon ["Int"],PExpression (LitE (CharL ',')),PTycon ["Int"]]] Nothing)
+*Main> 
+*Main> runQ baz_parseM_body 
+AppE (VarE line_parseM) (LetE [FunD f_rep [Clause [VarP x1,VarP x3] (NormalB (TupE [VarE x1,VarE x3])) []],FunD f_md [Clause [VarP x1,VarP x2,VarP x3] (NormalB (TupE [AppE (VarE Language.Pads.MetaData.mergeBaseMDs) (ListE [AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x1),AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x2),AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x3)]),TupE [VarE x1,VarE x2,VarE x3]])) []]] (InfixE (Just (InfixE (Just (InfixE (Just (AppE (VarE GHC.Base.return) (TupE [VarE f_rep,VarE f_md]))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE int_parseM)))) (VarE Language.Pads.PadsParser.=@) (Just (AppE (VarE Language.Pads.CoreBaseTypes.litParse) (LitE (CharL ',')))))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE int_parseM))))
+```
+
+The Line type is defined in BaseTypes.hs, but we can redefine it
+to inspect its internal representation:
+
+```haskell
+*Main> let myLine = parsePadsString typeDecl "type Line a   = (a, EOR)"
+*Main> 
+*Main> myLine
+PadsDeclType "Line" ["a"] Nothing (PTuple [PTyvar "a",PTycon ["EOR"]])
+*Main> 
+*Main> let myLine_parseM_body = genParseTy (PTuple [PTyvar "a",PTycon ["EOR"]])*Main> 
+*Main> runQ myLine_parseM_body 
+LetE [FunD f_rep [Clause [VarP x1] (NormalB (TupE [VarE x1])) []],FunD f_md [Clause [VarP x1,VarP x2] (NormalB (TupE [AppE (VarE Language.Pads.MetaData.mergeBaseMDs) (ListE [AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x1),AppE (VarE Language.Pads.MetaData.get_md_header) (VarE x2)]),TupE [VarE x1,VarE x2]])) []]] (InfixE (Just (InfixE (Just (AppE (VarE GHC.Base.return) (TupE [VarE f_rep,VarE f_md]))) (VarE Language.Pads.PadsParser.=@=) (Just (VarE a__p)))) (VarE Language.Pads.PadsParser.=@) (Just (VarE Language.Pads.CoreBaseTypes.eor_parseM)))
+```
+
+Line takes a type parameter, which is why it can be applied to a PTuple type in the Baz example.
+
+## IV. Converting Pads descriptions to ATNs
+
+This section describes an approach to converting a Pads description's internal representation
+to an ATN structure that the ALL(*) parsing algorithm takes as input. The approach involves modifying the ATN representation described in [Adaptive LL(*) Parsing: The Power of Dynamic Analysis](http://delivery.acm.org/10.1145/2670000/2660202/p579-parr.pdf?ip=130.64.22.2&id=2660202&acc=ACTIVE%20SERVICE&key=AA86BE8B6928DDC7%2E4579F4D1C4C67060%2E4D4702B0C3E38B35%2E4D4702B0C3E38B35&CFID=784083305&CFTOKEN=44745320&__acm__=1499721527_57e2721c81d5a393c4bd1bea5025b994)
+in several ways. First, terminal edges, rather than being labeled with terminal symbols, are labeled
+with primitive Pads functions that inspect the input data (such as char_parseM). Second, each ATN includes
+a function to be performed on the subtrees produced by traversing that ATN (an example will make this clearer).
+
+### 1. PExpressions and built-in PTycons
+
+A PExpression's corresponding ATN has an edge labeled with the function
+that parses the literal expression wrapped by the PExpression, as shown
+below:
+
+![link](PExpression_ATN.png)
+
+The ATN for a built-in Pads type constructor is similar; it has an edge
+labeled with the built-in _parseM function:
+
+![link](MyChar_ATN.png)
+
+### 2. References to other Pads types
+
+A Pads type that refers to another Pads type has an ATN with a nonterminal edge
+that is labeled with the other Pads type's ATN. In other words, the referred-to
+ATN is treated as a submachine.
+
+![link](IntPair_submachine.png)
+
+
+
+
+
+
+
+
+
 
