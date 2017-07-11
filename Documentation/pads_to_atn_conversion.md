@@ -361,7 +361,47 @@ ATN is treated as a submachine.
 
 ![link](IntPair_submachine.png)
 
+### 3. PTuples and other compound types
 
+In an ATN representation of a Pads tuple type, the final state is labeled with
+a function that takes a list of parse trees (the subtrees produced by traversing
+the ATN's edges) and returns a tuple that contains them. This tuple example
+reflects the general approach to implementing parsers that return compound or
+aggregate values--once the parsing algorithm reaches the end of a production, 
+it applies an aggregating function to the subtrees produced by that production.
+
+The next example illustrates this process:
+
+At the first stage of applying the production, we haven't examined the input sequence
+and the stack of subtrees is empty.
+
+![link](PTuple_1.png)
+
+input = "4|33"    stack = []
+
+When we traverse the first ATN edge, we successfully apply int_parseM to the input
+and push the result onto the stack.
+
+![link](PTuple_2.png)
+
+input = "|33"    stack = [4]
+
+When we traverse the second ATN edge, we successfully apply (litParse '|') to the input
+and push the result onto the stack.
+
+![link](PTuple_3.png)
+
+input = "33"    stack = ['|', 4]
+
+When we traverse the third ATN edge, we successfully apply int_parseM to the input again
+and push the result onto the stack.
+
+![link](PTuple_4.png)
+
+input = ""    stack = [33, '|', 4]
+
+At this point, the ATN cursor is pointing to a final state, so we apply the aggregation function
+associated with the final state to the subtrees on the stack.
 
 
 
