@@ -13,9 +13,11 @@ i : `['a', 'b', 'c']`
 o : `Node 'S' [Node 'A' [Leaf 'a', Node 'A' [Leaf 'b']], Leaf 'c']`
 
 
+
 i : `['b', 'c']`
 
 o : `Node 'S' [Node 'A' [Leaf 'b'], Leaf 'c']`
+
 
 
 i : `['a', 'a', 'a', 'b', 'c']`
