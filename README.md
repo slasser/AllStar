@@ -22,5 +22,5 @@ A -> aA | b
 
 ```haskell
 *Test.AllStarTests> parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv
-(Just True,Node 'S' [Node 'A' [Leaf 'a',Node 'A' [Leaf 'a',Node 'A' [Leaf 'a',Node 'A' [Leaf 'a',Node 'A' [Leaf 'b']]]]],Leaf 'c'])
+(Just True, Node 'S' [Node 'A' [Leaf 'a', Node 'A' [Leaf 'a', Node 'A' [Leaf 'a', Node 'A' [Leaf 'a', Node 'A' [Leaf 'b']]]]], Leaf 'c'])
 ```
