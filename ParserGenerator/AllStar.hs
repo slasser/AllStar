@@ -92,6 +92,10 @@ allEqual :: Eq a => [a] -> Bool
 allEqual []       = True
 allEqual (x : xs) = all (== x) xs
 
+bind :: Eq a => a -> b -> [(a, b)] -> [(a, b)]
+bind k v []             = [(k, v)]
+bind k v ((k', v') : al') = if k == k' then (k, v) : al' else (k', v') : bind k v al'
+
 --------------------------------ALL(*) FUNCTIONS--------------------------------
 -- should parse() also return residual input sequence?
 
@@ -117,16 +121,16 @@ parse input startSym atnEnv  =
                                      parseLoop cs q stack dfaEnv (subtrees ++ [Leaf b]) astStack
                                    else
                                      (Just False, Leaf 'z')
-                  (NT b, _)     -> let stack' = q : stack
-                                       i      = adaptivePredict t input stack' dfaEnv
-                                   in  parseLoop input (CHOICE b i) stack' dfaEnv [] (subtrees : astStack)
+                  (NT b, _)     -> let stack'       = q : stack
+                                       (i, dfaEnv') = adaptivePredict t input stack' dfaEnv
+                                   in  parseLoop input (CHOICE b i) stack' dfaEnv' [] (subtrees : astStack)
                   (EPS, _)      -> parseLoop input q stack dfaEnv subtrees astStack
 
-      initialDfaEnv = (map (\(sym, _) -> (sym, [])) atnEnv)
+      initialDfaEnv            = (map (\(sym, _) -> (sym, [])) atnEnv)
                              
-      iStart = adaptivePredict startSym input emptyStack initialDfaEnv
+      (iStart, initialDfaEnv') = adaptivePredict startSym input emptyStack initialDfaEnv
       
-  in  case startSym of (NT c) -> parseLoop input (CHOICE c iStart) emptyStack initialDfaEnv [] emptyStack
+  in  case startSym of (NT c) -> parseLoop input (CHOICE c iStart) emptyStack initialDfaEnv' [] emptyStack
                        _      -> error "Start symbol must be a nonterminal"
 
   where
@@ -137,8 +141,8 @@ parse input startSym atnEnv  =
         Just dfa -> let d0  = case findInitialState dfa of
                                 Just d0 -> d0
                                 Nothing -> startState sym emptyStack
-                        alt = sllPredict sym input d0 stack dfaEnv
-                    in  alt
+                        (alt, dfaEnv') = sllPredict sym input d0 stack dfaEnv
+                    in  (alt, dfaEnv')
       -- Do I actually need to create the final states ahead of time?
       {-
          finals = case (lookup sym atnEnv) of
@@ -185,21 +189,22 @@ parse input startSym atnEnv  =
           (FINAL _, q : gamma') -> currConfig : closure busy' (q, i, gamma')
           _                     -> currConfig : loopOverEdges pEdges
 
-    sllPredict sym input d0 stack dfaEnv =
+    sllPredict sym input d0 stack initialDfaEnv =
 --       trace ("calling sllPredict with sym " ++ show sym)
-      (let predictionLoop d tokens =
+      (let predictionLoop d tokens dfaEnv =
             case tokens of
-              []     -> llPredict sym input stack -- empty input
+              []     -> (llPredict sym input stack, initialDfaEnv) -- empty input, but do we have to discard previous updates to the DFA in this case?
               t : ts ->
-                let d' = case lookup sym dfaEnv of
-                           Nothing  -> error ("No DFA found for nonterminal " ++ show sym ++ show dfaEnv)
-                           Just dfa ->
-                             case dfaTrans d t dfa of
-                               Just (_, _, d2) -> d2
-                               Nothing         -> trace ("No target DFA state found for " ++ show d) target d t
+                let (d', dfaEnv') = case lookup sym dfaEnv of
+                                      Nothing  -> error ("No DFA found for nonterminal " ++ show sym ++ show dfaEnv)
+                                      Just dfa ->
+                                        case dfaTrans d t dfa of
+                                          Just (_, _, d2) -> trace ("Found a cached DFA transition to use!!!") (d2, dfaEnv)
+                                          Nothing         -> let d' = target d t
+                                                             in  (d', bind sym ((d, t, d') : dfa) dfaEnv)
                 in  case d' of
                       Derror            -> error ("No target DFA state found " ++ show d)
-                      F i               -> i
+                      F i               -> (i, dfaEnv')
                       D atnConfigs      ->
                         let conflictSets   = getConflictSetsPerLoc d'
                             prodSets       = getProdSetsPerState d'
@@ -207,10 +212,10 @@ parse input startSym atnEnv  =
                               any (\cSet -> length cSet > 1) conflictSets &&
                               not (any (\pSet -> length pSet == 1) prodSets)
                         in  if stackSensitive then
-                              llPredict sym input stack
+                              (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
-                              predictionLoop d' ts
-      in  predictionLoop d0 input)
+                              predictionLoop d' ts dfaEnv'
+      in  predictionLoop d0 input initialDfaEnv)
 
     llPredict sym input stack =
       let d0 = startState sym stack
