@@ -143,12 +143,6 @@ parse input startSym atnEnv  =
                                 Nothing -> startState sym emptyStack
                         (alt, dfaEnv') = sllPredict sym input d0 stack dfaEnv
                     in  (alt, dfaEnv')
-      -- Do I actually need to create the final states ahead of time?
-      {-
-         finals = case (lookup sym atnEnv) of
-         Just ess -> [F i | i <- map fst (zip [0..] ess)]
-         Nothing  -> trace (error ("aP No ATN for symbol " ++ show sym)) [Derror]
-      -}
 
     startState sym stack =
       case lookup sym atnEnv of
@@ -190,8 +184,7 @@ parse input startSym atnEnv  =
           _                     -> currConfig : loopOverEdges pEdges
 
     sllPredict sym input d0 stack initialDfaEnv =
---       trace ("calling sllPredict with sym " ++ show sym)
-      (let predictionLoop d tokens dfaEnv =
+      let predictionLoop d tokens dfaEnv =
             case tokens of
               []     -> (llPredict sym input stack, initialDfaEnv) -- empty input, but do we have to discard previous updates to the DFA in this case?
               t : ts ->
@@ -199,7 +192,7 @@ parse input startSym atnEnv  =
                                       Nothing  -> error ("No DFA found for nonterminal " ++ show sym ++ show dfaEnv)
                                       Just dfa ->
                                         case dfaTrans d t dfa of
-                                          Just (_, _, d2) -> trace ("Found a cached DFA transition to use!!!") (d2, dfaEnv)
+                                          Just (_, _, d2) -> (d2, dfaEnv)
                                           Nothing         -> let d' = target d t
                                                              in  (d', bind sym ((d, t, d') : dfa) dfaEnv)
                 in  case d' of
@@ -215,7 +208,7 @@ parse input startSym atnEnv  =
                               (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
                               predictionLoop d' ts dfaEnv'
-      in  predictionLoop d0 input initialDfaEnv)
+      in  predictionLoop d0 input initialDfaEnv
 
     llPredict sym input stack =
       let d0 = startState sym stack
