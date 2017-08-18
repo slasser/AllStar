@@ -1,3 +1,5 @@
+-- To do: put in the right expected results for these tests!
+
 module Test.AllStarTests where
 
 import Test.HUnit
@@ -31,33 +33,27 @@ atnEnv = [(NT 'S', atnS), (NT 'A', atnA)]
 
 -- Example from the manual trace of ALL(*)'s execution
 parseTest1 = TestCase (assertEqual "for parse [a, b, c],"
-                                   (Just True)
-                                   (let (accepted, _) = parse ['a', 'b', 'c'] (NT 'S') atnEnv True
-                                    in  accepted))
-
-
+                                   (Leaf 'l')
+                                   (parse ['a', 'b', 'c'] (NT 'S') atnEnv True))
+                                   
 -- Example #1 from the ALL(*) paper
 parseTest2 = TestCase (assertEqual "for parse [b, c],"
-                                   (Just True)
-                                   (let (accepted, _) = parse ['b', 'c'] (NT 'S') atnEnv True
-                                    in  accepted))
-
+                                    (Leaf 'l')
+                                    (parse ['b', 'c'] (NT 'S') atnEnv True))
+                                    
 -- Example #2 from the ALL(*) paper
 parseTest3 = TestCase (assertEqual "for parse [b, d],"
-                                   (Just True)
-                                   (let (accepted, _) = parse ['b', 'd'] (NT 'S') atnEnv True
-                                    in  accepted))
-
+                                   (Leaf 'l')
+                                   (parse ['b', 'd'] (NT 'S') atnEnv True))
+                                    
 -- Input that requires more recursive traversals of the A ATN
 parseTest4 = TestCase (assertEqual "for parse [a a a a b c],"
-                                   (Just True)
-                                   (let (accepted, _) = parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv True
-                                    in  accepted))
-
+                                   (Leaf 'l')
+                                   (parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv True))
+                                    
 parseTest5 = TestCase (assertEqual "for parse [a b a c],"
-                                   (Just True)
-                                   (let (accepted, _) = parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv True
-                                    in  accepted))
+                                   (Leaf 'l')
+                                   (parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv True))
 
 conflictsTest = TestCase (assertEqual "for getConflictSetsPerLoc()"
                          
@@ -106,15 +102,12 @@ ambigATN = [[(INIT 'S', EPS, CHOICE 'S' 1),
 ambigEnv = [(NT 'S', ambigATN)]
 
 ambigParseTest1 = TestCase (assertEqual "for parse [a],"
-                                        (Just True)
-                                        (let (accepted, _) = parse ['a'] (NT 'S') ambigEnv True
-                                         in  accepted))
+                                        (Leaf 'l')
+                                        (parse ['a'] (NT 'S') ambigEnv True))
 
 ambigParseTest2 = TestCase (assertEqual "for parse [a b],"
-                                        (Just True)
-                                        (let (accepted, _) = parse ['a', 'b'] (NT 'S') ambigEnv True
-                                         in  accepted))
-
+                                        (Leaf 'l')
+                                        (parse ['a', 'b'] (NT 'S') ambigEnv True))
 
         
 tests = [TestLabel "parseTest1"    parseTest1,

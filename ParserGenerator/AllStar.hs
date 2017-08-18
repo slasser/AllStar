@@ -34,7 +34,7 @@ type InputSeq = [Token]
 type Token    = Char
 
 -- Return type of parse function
-data AST = Node Char [AST] | Leaf Char deriving (Show)
+data AST = Node Char [AST] | Leaf Char deriving (Eq, Show)
 
 --------------------------------CONSTANTS---------------------------------------
 
@@ -99,13 +99,13 @@ bind k v ((k', v') : al') = if k == k' then (k, v) : al' else (k', v') : bind k 
 --------------------------------ALL(*) FUNCTIONS--------------------------------
 -- should parse() also return residual input sequence?
 
-parse :: InputSeq -> GrammarSymbol -> ATNEnv -> Bool -> (Maybe Bool, AST)
+parse :: InputSeq -> GrammarSymbol -> ATNEnv -> Bool -> AST
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
         case (currState, startSym) of
           (FINAL c, NT c') ->
             if c == c' then
-              (Just True, Node c subtrees)
+              Node c subtrees
             else
               case (stack, astStack) of
                 (q : stack', leftSiblings : astStack') ->
@@ -120,7 +120,7 @@ parse input startSym atnEnv useCache =
                   (T b, c : cs) -> if b == c then
                                      parseLoop cs q stack dfaEnv (subtrees ++ [Leaf b]) astStack
                                    else
-                                     (Just False, Leaf 'z')
+                                     Leaf 'z'
                   (NT b, _)     -> let stack'       = q : stack
                                        (i, dfaEnv') = adaptivePredict t input stack' dfaEnv
                                    in  parseLoop input (CHOICE b i) stack' dfaEnv' [] (subtrees : astStack)
