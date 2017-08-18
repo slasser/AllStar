@@ -99,8 +99,8 @@ bind k v ((k', v') : al') = if k == k' then (k, v) : al' else (k', v') : bind k 
 --------------------------------ALL(*) FUNCTIONS--------------------------------
 -- should parse() also return residual input sequence?
 
-parse :: InputSeq -> GrammarSymbol -> ATNEnv -> (Maybe Bool, AST)
-parse input startSym atnEnv  =
+parse :: InputSeq -> GrammarSymbol -> ATNEnv -> Bool -> (Maybe Bool, AST)
+parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
         case (currState, startSym) of
           (FINAL c, NT c') ->
@@ -188,13 +188,16 @@ parse input startSym atnEnv  =
             case tokens of
               []     -> (llPredict sym input stack, initialDfaEnv) -- empty input, but do we have to discard previous updates to the DFA in this case?
               t : ts ->
-                let (d', dfaEnv') = case lookup sym dfaEnv of
-                                      Nothing  -> error ("No DFA found for nonterminal " ++ show sym ++ show dfaEnv)
-                                      Just dfa ->
-                                        case dfaTrans d t dfa of
-                                          Just (_, _, d2) -> (d2, dfaEnv)
-                                          Nothing         -> let d' = target d t
-                                                             in  (d', bind sym ((d, t, d') : dfa) dfaEnv)
+                let (d', dfaEnv') = if useCache then
+                                      case lookup sym dfaEnv of
+                                        Nothing  -> error ("No DFA found for nonterminal " ++ show sym ++ show dfaEnv)
+                                        Just dfa ->
+                                          case dfaTrans d t dfa of
+                                            Just (_, _, d2) -> (d2, dfaEnv)
+                                            Nothing         -> let d' = target d t
+                                                               in  (d', bind sym ((d, t, d') : dfa) dfaEnv)
+                                    else
+                                      (target d t, dfaEnv) -- don't use the cache, or add any new information to it
                 in  case d' of
                       Derror            -> error ("No target DFA state found " ++ show d)
                       F i               -> (i, dfaEnv')

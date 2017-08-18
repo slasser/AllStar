@@ -32,31 +32,31 @@ atnEnv = [(NT 'S', atnS), (NT 'A', atnA)]
 -- Example from the manual trace of ALL(*)'s execution
 parseTest1 = TestCase (assertEqual "for parse [a, b, c],"
                                    (Just True)
-                                   (let (accepted, _) = parse ['a', 'b', 'c'] (NT 'S') atnEnv
+                                   (let (accepted, _) = parse ['a', 'b', 'c'] (NT 'S') atnEnv True
                                     in  accepted))
 
 
 -- Example #1 from the ALL(*) paper
 parseTest2 = TestCase (assertEqual "for parse [b, c],"
                                    (Just True)
-                                   (let (accepted, _) = parse ['b', 'c'] (NT 'S') atnEnv
+                                   (let (accepted, _) = parse ['b', 'c'] (NT 'S') atnEnv True
                                     in  accepted))
 
 -- Example #2 from the ALL(*) paper
 parseTest3 = TestCase (assertEqual "for parse [b, d],"
                                    (Just True)
-                                   (let (accepted, _) = parse ['b', 'd'] (NT 'S') atnEnv
+                                   (let (accepted, _) = parse ['b', 'd'] (NT 'S') atnEnv True
                                     in  accepted))
 
 -- Input that requires more recursive traversals of the A ATN
 parseTest4 = TestCase (assertEqual "for parse [a a a a b c],"
                                    (Just True)
-                                   (let (accepted, _) = parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv
+                                   (let (accepted, _) = parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv True
                                     in  accepted))
 
 parseTest5 = TestCase (assertEqual "for parse [a b a c],"
                                    (Just True)
-                                   (let (accepted, _) = parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv
+                                   (let (accepted, _) = parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv True
                                     in  accepted))
 
 conflictsTest = TestCase (assertEqual "for getConflictSetsPerLoc()"
@@ -107,12 +107,12 @@ ambigEnv = [(NT 'S', ambigATN)]
 
 ambigParseTest1 = TestCase (assertEqual "for parse [a],"
                                         (Just True)
-                                        (let (accepted, _) = parse ['a'] (NT 'S') ambigEnv
+                                        (let (accepted, _) = parse ['a'] (NT 'S') ambigEnv True
                                          in  accepted))
 
 ambigParseTest2 = TestCase (assertEqual "for parse [a b],"
                                         (Just True)
-                                        (let (accepted, _) = parse ['a', 'b'] (NT 'S') ambigEnv
+                                        (let (accepted, _) = parse ['a', 'b'] (NT 'S') ambigEnv True
                                          in  accepted))
 
 
