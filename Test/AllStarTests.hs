@@ -33,27 +33,52 @@ atnEnv = [(NT 'S', atnS), (NT 'A', atnA)]
 
 -- Example from the manual trace of ALL(*)'s execution
 parseTest1 = TestCase (assertEqual "for parse [a, b, c],"
-                                   (Right (Leaf 'l'))
+                                   (Right (Node 'S'
+                                            [Node 'A'
+                                              [Leaf 'a',
+                                               Node 'A'
+                                                [Leaf 'b']],
+                                             Leaf 'c']))
                                    (parse ['a', 'b', 'c'] (NT 'S') atnEnv True))
                                    
 -- Example #1 from the ALL(*) paper
 parseTest2 = TestCase (assertEqual "for parse [b, c],"
-                                    (Right (Leaf 'l'))
+                                    (Right (Node 'S'
+                                             [Node 'A'
+                                               [Leaf 'b'],
+                                              Leaf 'c']))
                                     (parse ['b', 'c'] (NT 'S') atnEnv True))
                                     
 -- Example #2 from the ALL(*) paper
 parseTest3 = TestCase (assertEqual "for parse [b, d],"
-                                   (Right (Leaf 'l'))
+                                   (Right (Node 'S'
+                                            [Node 'A'
+                                              [Leaf 'b'],
+                                             Leaf 'd']))
                                    (parse ['b', 'd'] (NT 'S') atnEnv True))
                                     
 -- Input that requires more recursive traversals of the A ATN
-parseTest4 = TestCase (assertEqual "for parse [a a a a b c],"
-                                   (Right (Leaf 'l'))
-                                   (parse ['a', 'a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv True))
-                                    
+parseTest4 = TestCase (assertEqual "for parse [a a a b c],"
+                                   (Right (Node 'S'
+                                            [Node 'A'
+                                              [Leaf 'a',
+                                               Node 'A'
+                                                [Leaf 'a',
+                                                 Node 'A'
+                                                  [Leaf 'a',
+                                                   Node 'A'
+                                                    [Leaf 'b']]]],
+                                             Leaf 'c']))
+                                   (parse ['a', 'a', 'a', 'b', 'c'] (NT 'S') atnEnv True))
+
+-- Make sure that the result of parsing an out-of-language string has a Left tag.             
 parseTest5 = TestCase (assertEqual "for parse [a b a c],"
-                                   (Right (Leaf 'l'))
-                                   (parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv True))
+                                   True
+                                   (let parseResult = parse ['a', 'b', 'a', 'c'] (NT 'S') atnEnv True
+                                        isLeft pr = case pr of
+                                                      Left _ -> True
+                                                      _ -> False
+                                    in  isLeft parseResult))
 
 conflictsTest = TestCase (assertEqual "for getConflictSetsPerLoc()"
                          
@@ -102,11 +127,17 @@ ambigATN = [[(INIT 'S', EPS, CHOICE 'S' 1),
 ambigEnv = [(NT 'S', ambigATN)]
 
 ambigParseTest1 = TestCase (assertEqual "for parse [a],"
-                                        (Right (Leaf 'l'))
-                                        (parse ['a'] (NT 'S') ambigEnv True))
+                                        True
+                                        (let parseResult = parse ['a'] (NT 'S') atnEnv True
+                                             isLeft pr = case pr of
+                                                           Left _ -> True
+                                                           _ -> False
+                                         in  isLeft parseResult))
 
 ambigParseTest2 = TestCase (assertEqual "for parse [a b],"
-                                        (Right (Leaf 'l'))
+                                        (Right (Node 'S'
+                                                 [Leaf 'a',
+                                                  Leaf 'b']))
                                         (parse ['a', 'b'] (NT 'S') ambigEnv True))
 
         

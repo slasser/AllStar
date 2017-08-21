@@ -185,12 +185,12 @@ parse input startSym atnEnv useCache =
         in  case (p, gamma) of
           (FINAL _, [])         -> [currConfig]
           (FINAL _, q : gamma') -> currConfig : closure busy' (q, i, gamma')
-          _                     -> currConfig : loopOverEdges pEdges
+          _                     -> corrConfig : loopOverEdges pEdges
 
     sllPredict sym input d0 stack initialDfaEnv =
       let predictionLoop d tokens dfaEnv =
             case tokens of
-              []     -> Just (llPredict sym input stack, initialDfaEnv) -- empty input, but do we have to discard previous updates to the DFA in this case?
+              []     -> Nothing -- Does the empty token sequence ever indicate that the grammar is ambiguous?
               t : ts ->
                 let (d', dfaEnv') =
                       if useCache then
@@ -215,7 +215,7 @@ parse input startSym atnEnv useCache =
                         in  if stackSensitive then
                               Just (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
-                              predictionLoop d' ts dfaEnv'
+                              trace ("d' = " ++ show d' ++ "\n") predictionLoop d' ts dfaEnv'
       in  predictionLoop d0 input initialDfaEnv
 
     -- This function looks a little fishy -- come back to it and think about what each case represents
