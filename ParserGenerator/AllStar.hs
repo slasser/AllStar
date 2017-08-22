@@ -185,7 +185,7 @@ parse input startSym atnEnv useCache =
         in  case (p, gamma) of
           (FINAL _, [])         -> [currConfig]
           (FINAL _, q : gamma') -> currConfig : closure busy' (q, i, gamma')
-          _                     -> corrConfig : loopOverEdges pEdges
+          _                     -> currConfig : loopOverEdges pEdges
 
     sllPredict sym input d0 stack initialDfaEnv =
       let predictionLoop d tokens dfaEnv =
