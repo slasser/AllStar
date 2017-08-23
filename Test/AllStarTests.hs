@@ -84,7 +84,7 @@ conflictsTest = TestCase (assertEqual "for getConflictSetsPerLoc()"
                          
                                       ([[(MIDDLE 5, 1, []), (MIDDLE 5, 2, []),(MIDDLE 5, 3, [])],
                                         [(MIDDLE 5, 1, [MIDDLE 1]), (MIDDLE 5, 2, [MIDDLE 1])],
-                                        [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]])
+                                        [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]] :: [[ATNConfig Char]])
                                          
                                       (getConflictSetsPerLoc (D [(MIDDLE 5, 1, []),
                                                                  (MIDDLE 5, 2, []),
@@ -101,7 +101,7 @@ prodsTest = TestCase (assertEqual "for getProdSetsPerState()"
                                      (MIDDLE 5, 1, [MIDDLE 1]),
                                      (MIDDLE 5, 2, [MIDDLE 1])],
                                      
-                                    [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]])
+                                    [(MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])]] :: [[ATNConfig Char]])
                                          
                                   (getProdSetsPerState (D [(MIDDLE 5, 1, []),
                                                            (MIDDLE 5, 2, []),

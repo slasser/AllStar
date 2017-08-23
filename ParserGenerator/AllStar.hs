@@ -11,30 +11,33 @@ import Debug.Trace
 -- Consider more nested representation of ATN, where integer path IDs are keys
 
 -- grammar types
-data GrammarSymbol = T Char | NT Char | EPS deriving (Eq, Show)
+data GrammarSymbol nt t = NT nt | T t | EPS deriving (Eq, Show)
 
 -- ATN types
-type ATN       = [ATNPath]
-type ATNPath   = [ATNEdge]
-type ATNEdge   = (ATNState, GrammarSymbol, ATNState)
-data ATNState  = INIT Char | CHOICE Char Int | MIDDLE Int | FINAL Char
-                 deriving (Eq, Ord, Show)
-type ATNStack  = [ATNState]
-type ATNEnv    = [(GrammarSymbol, ATN)]
-type ATNConfig = (ATNState, Int, ATNStack)
+type ATN nt t       = [ATNPath nt t]
+type ATNPath nt t   = [ATNEdge nt t]
+type ATNEdge nt t   = (ATNState nt, GrammarSymbol nt t, ATNState nt)
+data ATNState nt    = INIT nt | CHOICE nt Int | MIDDLE Int | FINAL nt
+                      deriving (Eq, Ord, Show)
+type ATNStack nt    = [ATNState nt]
+type ATNEnv nt t    = [(GrammarSymbol nt t, ATN nt t)]
+type ATNConfig nt   = (ATNState nt, Int, ATNStack nt)
 
 -- DFA types
-type DFA      = [DFAEdge]
-type DFAEdge  = (DFAState, Token, DFAState)
-data DFAState = Dinit [ATNConfig] | D [ATNConfig] | F Int | Derror deriving (Eq, Show)
-type DFAEnv   = [(GrammarSymbol, DFA)]
+type DFA nt t     = [DFAEdge nt t]
+type DFAEdge nt t = (DFAState nt, t, DFAState nt)
+data DFAState nt  = Dinit [ATNConfig nt] | D [ATNConfig nt] | F Int | Derror deriving (Eq, Show)
+type DFAEnv nt t  = [(GrammarSymbol nt t, DFA nt t)]
 
 -- Input sequence type
-type InputSeq = [Token]
-type Token    = Char
+class Tok t where
+  getSymbol  :: t -> a
+  getLiteral :: t -> b
+
+-- type InputSeq a = [a]
 
 -- Return type of parse function
-data AST = Node Char [AST] | Leaf Char deriving (Eq, Show)
+data AST nt t = Node nt [AST nt t] | Leaf t deriving (Eq, Show)
 
 --------------------------------CONSTANTS---------------------------------------
 
@@ -46,17 +49,17 @@ emptyDerivation = []
 
 -- Return the ATN edge with ATN state p on the left
 -- Q: Should I handle the "no edge found" case here, or in the caller?
-outgoingEdge :: ATNState -> ATNEnv -> Maybe ATNEdge
+outgoingEdge :: Eq nt => ATNState nt -> ATNEnv nt t -> Maybe (ATNEdge nt t)
 outgoingEdge p atnEnv = let edges = (concat . concat) (map snd atnEnv)
                         in  find (\(p', t, q) -> p == p') edges
 
 -- Return all ATN edges with ATN state p on the left
-outgoingEdges :: ATNState -> ATNEnv -> [ATNEdge]
+outgoingEdges :: Eq nt => ATNState nt -> ATNEnv nt t -> [ATNEdge nt t]
 outgoingEdges p atnEnv = let edges = (concat . concat) (map snd atnEnv)
                          in  filter (\(p', t, q) -> p == p') edges
 
 -- Better way to ensure that the parameter is a D DFA state?
-getConflictSetsPerLoc :: DFAState -> [[ATNConfig]]
+getConflictSetsPerLoc :: (Eq nt, Ord nt) => DFAState nt -> [[ATNConfig nt]]
 getConflictSetsPerLoc q =
   case q of
     F _       -> error "final state passed to getConflictSetsPerLoc"
@@ -66,7 +69,7 @@ getConflictSetsPerLoc q =
                                p == p' && i /= j && gamma == gamma')
                              sortedConfigs
 
-getProdSetsPerState :: DFAState -> [[ATNConfig]]
+getProdSetsPerState :: (Eq nt, Ord nt) => DFAState nt -> [[ATNConfig nt]]
 getProdSetsPerState q = 
   case q of
     F _       -> error "final state passed to getProdSetsPerState"
@@ -75,10 +78,10 @@ getProdSetsPerState q =
                  in  groupBy (\(p, _, _) (p', _, _) -> p == p')
                              sortedConfigs
 
-dfaTrans :: DFAState -> Token -> DFA -> Maybe DFAEdge
+dfaTrans :: (Eq nt, Eq t) => DFAState nt -> t -> DFA nt t -> Maybe (DFAEdge nt t)
 dfaTrans d t dfa = find (\(d1, label, _) -> d1 == d && label == t) dfa
 
-findInitialState :: DFA -> Maybe DFAState
+findInitialState :: DFA nt t -> Maybe (DFAState nt)
 findInitialState dfa =
   let isInit d = case d of
                    Dinit _ -> True
@@ -99,7 +102,8 @@ bind k v ((k', v') : al') = if k == k' then (k, v) : al' else (k', v') : bind k 
 --------------------------------ALL(*) FUNCTIONS--------------------------------
 -- should parse() also return residual input sequence?
 
-parse :: InputSeq -> GrammarSymbol -> ATNEnv -> Bool -> Either String AST
+parse :: (Eq nt, Show nt, Ord nt, Eq t, Show t) =>
+         [t] -> GrammarSymbol nt t -> ATNEnv nt t -> Bool -> Either String (AST nt t)
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
         case (currState, startSym) of
@@ -121,11 +125,11 @@ parse input startSym atnEnv useCache =
                   (T b, c : cs) -> if b == c then
                                      parseLoop cs q stack dfaEnv (subtrees ++ [Leaf b]) astStack
                                    else
-                                     Left ("remaining input: " ++ input)
+                                     Left ("remaining input: " ++ show input)
                   (NT b, _)     -> let stack'       = q : stack
                                    in  case adaptivePredict t input stack' dfaEnv of
-                                         Nothing -> Left ("Couldn't find a path through ATN " ++ [b] ++
-                                                          " with input " ++ input)
+                                         Nothing -> Left ("Couldn't find a path through ATN " ++ show b ++
+                                                          " with input " ++ show input)
                                          Just (i, dfaEnv') -> parseLoop input (CHOICE b i) stack' dfaEnv' [] (subtrees : astStack)
                   (EPS, _)      -> parseLoop input q stack dfaEnv subtrees astStack
 
@@ -133,8 +137,8 @@ parse input startSym atnEnv useCache =
       
   in  case startSym of (NT c) ->
                          case adaptivePredict startSym input emptyStack initialDfaEnv of
-                           Nothing -> Left ("Couldn't find a path through ATN " ++ [c] ++
-                                            " with input " ++ input)
+                           Nothing -> Left ("Couldn't find a path through ATN " ++ show c ++
+                                            " with input " ++ show input)
                            Just (iStart, initialDfaEnv') -> parseLoop input (CHOICE c iStart) emptyStack initialDfaEnv' [] emptyStack
                        _ -> error "Start symbol must be a nonterminal"
 
@@ -215,7 +219,7 @@ parse input startSym atnEnv useCache =
                         in  if stackSensitive then
                               Just (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
-                              trace ("d' = " ++ show d' ++ "\n") predictionLoop d' ts dfaEnv'
+                              predictionLoop d' ts dfaEnv'
       in  predictionLoop d0 input initialDfaEnv
 
     -- This function looks a little fishy -- come back to it and think about what each case represents
