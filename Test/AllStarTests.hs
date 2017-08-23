@@ -1,4 +1,4 @@
--- To do: put in the right expected results for these tests!
+{-# LANGUAGE TypeFamilies #-}
 
 module Test.AllStarTests where
 
@@ -6,6 +6,18 @@ import Test.HUnit
 import ParserGenerator.AllStar
 
 --------------------------------TESTING-----------------------------------------
+
+instance Token Char where
+  type Label Char = Char
+  type Literal Char = Char
+  getLabel c = c
+  getLiteral c = c
+
+instance Token (a, b) where
+  type Label (t1, t2) = t1
+  type Literal (t1, t2) = t2
+  getLabel (a, b) = a
+  getLiteral (a, b) = b
 
 atnS = [[(INIT 'S', EPS, CHOICE 'S' 1),
          (CHOICE 'S' 1, NT 'A', MIDDLE 1),

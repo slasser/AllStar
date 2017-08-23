@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies, FlexibleContexts #-}
 module ParserGenerator.AllStar where
 
 import Data.List
@@ -24,20 +25,20 @@ type ATNEnv nt t    = [(GrammarSymbol nt t, ATN nt t)]
 type ATNConfig nt   = (ATNState nt, Int, ATNStack nt)
 
 -- DFA types
-type DFA nt t     = [DFAEdge nt t]
-type DFAEdge nt t = (DFAState nt, t, DFAState nt)
-data DFAState nt  = Dinit [ATNConfig nt] | D [ATNConfig nt] | F Int | Derror deriving (Eq, Show)
-type DFAEnv nt t  = [(GrammarSymbol nt t, DFA nt t)]
+type DFA nt t       = [DFAEdge nt t]
+type DFAEdge nt t   = (DFAState nt, t, DFAState nt)
+data DFAState nt    = Dinit [ATNConfig nt] | D [ATNConfig nt] | F Int | Derror deriving (Eq, Show)
+type DFAEnv nt t    = [(GrammarSymbol nt t, DFA nt t)]
 
 -- Input sequence type
-class Tok t where
-  getSymbol  :: t -> a
-  getLiteral :: t -> b
-
--- type InputSeq a = [a]
+class Token t where
+  type Label t :: *
+  type Literal t :: *
+  getLabel   :: t -> Label t
+  getLiteral :: t -> Literal t
 
 -- Return type of parse function
-data AST nt t = Node nt [AST nt t] | Leaf t deriving (Eq, Show)
+data AST nt tok = Node nt [AST nt tok] | Leaf tok deriving (Eq, Show)
 
 --------------------------------CONSTANTS---------------------------------------
 
@@ -102,8 +103,8 @@ bind k v ((k', v') : al') = if k == k' then (k, v) : al' else (k', v') : bind k 
 --------------------------------ALL(*) FUNCTIONS--------------------------------
 -- should parse() also return residual input sequence?
 
-parse :: (Eq nt, Show nt, Ord nt, Eq t, Show t) =>
-         [t] -> GrammarSymbol nt t -> ATNEnv nt t -> Bool -> Either String (AST nt t)
+parse :: (Eq nt, Show nt, Ord nt, Show tok, Eq (Label tok), Show (Label tok), Token tok) =>
+         [tok] -> GrammarSymbol nt (Label tok) -> ATNEnv nt (Label tok) -> Bool -> Either String (AST nt tok)
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
         case (currState, startSym) of
@@ -122,8 +123,8 @@ parse input startSym atnEnv useCache =
               Just (p, t, q) ->
                 case (t, input) of
                   (T b, [])     -> error "Input has been exhausted"
-                  (T b, c : cs) -> if b == c then
-                                     parseLoop cs q stack dfaEnv (subtrees ++ [Leaf b]) astStack
+                  (T b, c : cs) -> if b == getLabel c then
+                                     parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack -- changed from Leaf b
                                    else
                                      Left ("remaining input: " ++ show input)
                   (NT b, _)     -> let stack'       = q : stack
@@ -144,7 +145,8 @@ parse input startSym atnEnv useCache =
 
   where
 
-    adaptivePredict sym input stack dfaEnv =
+    -- adaptivePredict :: (GrammarSymbol nt (Label tok)) -> [tok] -> ATNStack nt -> DFAEnv nt (Label tok) -> Maybe (Int, DFAEnv nt (Label tok))
+    adaptivePredict sym input stack dfaEnv  =
       case lookup sym dfaEnv of
         Nothing  -> error ("No DFA found for " ++ show sym)
         Just dfa -> let d0  = case findInitialState dfa of
@@ -201,10 +203,10 @@ parse input startSym atnEnv useCache =
                         case lookup sym dfaEnv of
                           Nothing  -> error ("No DFA found for nonterminal " ++ show sym ++ show dfaEnv)
                           Just dfa ->
-                            case dfaTrans d t dfa of
+                            case dfaTrans d (getLabel t) dfa of
                               Just (_, _, d2) -> (d2, dfaEnv)
                               Nothing         -> let d' = target d t
-                                in  (d', bind sym ((d, t, d') : dfa) dfaEnv)
+                                in  (d', bind sym ((d, getLabel t, d') : dfa) dfaEnv)
                       else
                         (target d t, dfaEnv) -- don't use the cache, or add any new information to it
                 in  case d' of
@@ -231,7 +233,7 @@ parse input startSym atnEnv useCache =
             case tokens of
               []     -> error ("Empty input in llPredict")
               t : ts -> 
-                let mv = move d t
+                let mv = move d (getLabel t)
                     d' = D (concat (map (closure []) mv))
                 in  case d' of
                       D []         -> error ("empty DFA state in llPredict")
@@ -251,7 +253,7 @@ parse input startSym atnEnv useCache =
       
 
     target d a =
-      let mv = move d a
+      let mv = move d (getLabel a)
           d' = D (concat (map (closure []) mv))
       in  case d' of
             D []         -> Derror
