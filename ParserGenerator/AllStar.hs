@@ -17,7 +17,8 @@ data GrammarSymbol nt t = NT nt | T t | EPS deriving (Eq, Show)
 -- ATN types
 type ATN nt t       = [ATNPath nt t]
 type ATNPath nt t   = [ATNEdge nt t]
-type ATNEdge nt t   = (ATNState nt, GrammarSymbol nt t, ATNState nt)
+type ATNEdge nt t   = (ATNState nt, ATNEdgeLabel nt t, ATNState nt)
+data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool
 data ATNState nt    = INIT nt | CHOICE nt Int | MIDDLE Int | FINAL nt
                       deriving (Eq, Ord, Show)
 type ATNStack nt    = [ATNState nt]
@@ -122,17 +123,18 @@ parse input startSym atnEnv useCache =
               Nothing -> error ("No matching edge found for " ++ (show currState))
               Just (p, t, q) ->
                 case (t, input) of
-                  (T b, [])     -> error "Input has been exhausted"
-                  (T b, c : cs) -> if b == getLabel c then
-                                     parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack -- changed from Leaf b
-                                   else
-                                     Left ("remaining input: " ++ show input)
-                  (NT b, _)     -> let stack'       = q : stack
-                                   in  case adaptivePredict t input stack' dfaEnv of
-                                         Nothing -> Left ("Couldn't find a path through ATN " ++ show b ++
-                                                          " with input " ++ show input)
-                                         Just (i, dfaEnv') -> parseLoop input (CHOICE b i) stack' dfaEnv' [] (subtrees : astStack)
-                  (EPS, _)      -> parseLoop input q stack dfaEnv subtrees astStack
+                  (GS (T b), [])     -> error "Input has been exhausted"
+                  (GS (T b), c : cs) -> if b == getLabel c then
+                                          parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack -- changed from Leaf b
+                                        else
+                                          Left ("remaining input: " ++ show input)
+                  (GS (NT b), _)     -> let stack'       = q : stack
+                                        in  case adaptivePredict (NT b) input stack' dfaEnv of  -- Pattern for referring to (NT b)?
+                                              Nothing -> Left ("Couldn't find a path through ATN " ++ show b ++
+                                                               " with input " ++ show input)
+                                              Just (i, dfaEnv') -> parseLoop input (CHOICE b i) stack' dfaEnv' [] (subtrees : astStack)
+                  (GS EPS, _)        -> parseLoop input q stack dfaEnv subtrees astStack
+                  (PRED _, _)        -> error "not implemented"
 
       initialDfaEnv            = (map (\(sym, _) -> (sym, [])) atnEnv)
       
@@ -180,13 +182,13 @@ parse input startSym atnEnv useCache =
             loopOverEdges es =
               case es of
                 []                      -> [] 
-                (_, NT ntName, q) : es' ->
+                (_, GS (NT ntName), q) : es' ->
                   closure busy' (INIT ntName, i, q : gamma) ++
                   loopOverEdges es'
-                (_, EPS, q) : es'       ->
+                (_, GS EPS, q) : es'       ->
                   closure busy' (q, i, gamma) ++
                   loopOverEdges es'
-                (_, T _, _) : es'       ->
+                (_, GS (T _), _) : es'       ->
                   loopOverEdges es'
         in  case (p, gamma) of
           (FINAL _, [])         -> [currConfig]
@@ -269,10 +271,10 @@ parse input startSym atnEnv useCache =
                 let pOutgoingEdges = outgoingEdges p atnEnv
                 in  foldr (\(p', label, q) acc ->
                             case label of
-                              T a -> if t == a then
-                                       (q, i, gamma) : acc
-                                     else
-                                       acc
+                              GS (T a) -> if t == a then
+                                            (q, i, gamma) : acc
+                                          else
+                                            acc
                               _   -> acc)
                           []
                           pOutgoingEdges

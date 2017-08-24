@@ -19,24 +19,24 @@ instance Token (a, b) where
   getLabel (a, b) = a
   getLiteral (a, b) = b
 
-atnS = [[(INIT 'S', EPS, CHOICE 'S' 1),
-         (CHOICE 'S' 1, NT 'A', MIDDLE 1),
-         (MIDDLE 1, T 'c', MIDDLE 2),
-         (MIDDLE 2, EPS, FINAL 'S')],
+atnS = [[(INIT 'S', GS EPS, CHOICE 'S' 1),
+         (CHOICE 'S' 1, GS (NT 'A'), MIDDLE 1),
+         (MIDDLE 1, GS (T 'c'), MIDDLE 2),
+         (MIDDLE 2, GS EPS, FINAL 'S')],
           
-        [(INIT 'S', EPS, CHOICE 'S' 2),
-         (CHOICE 'S' 2, NT 'A', MIDDLE 3),
-         (MIDDLE 3, T 'd', MIDDLE 4),
-         (MIDDLE 4, EPS, FINAL 'S')]]
+        [(INIT 'S', GS EPS, CHOICE 'S' 2),
+         (CHOICE 'S' 2, GS (NT 'A'), MIDDLE 3),
+         (MIDDLE 3, GS (T 'd'), MIDDLE 4),
+         (MIDDLE 4, GS EPS, FINAL 'S')]]
 
-atnA = [[(INIT 'A', EPS, CHOICE 'A' 1),
-         (CHOICE 'A' 1, T 'a', MIDDLE 5),
-         (MIDDLE 5, NT 'A', MIDDLE 6),
-         (MIDDLE 6, EPS, FINAL 'A')],
+atnA = [[(INIT 'A', GS EPS, CHOICE 'A' 1),
+         (CHOICE 'A' 1, GS (T 'a'), MIDDLE 5),
+         (MIDDLE 5, GS (NT 'A'), MIDDLE 6),
+         (MIDDLE 6, GS EPS, FINAL 'A')],
           
-        [(INIT 'A', EPS, CHOICE 'A' 2),
-         (CHOICE 'A' 2, T 'b', MIDDLE 7),
-         (MIDDLE 7, EPS, FINAL 'A')]]
+        [(INIT 'A', GS EPS, CHOICE 'A' 2),
+         (CHOICE 'A' 2, GS (T 'b'), MIDDLE 7),
+         (MIDDLE 7, GS EPS, FINAL 'A')]]
 
 atnEnv = [(NT 'S', atnS), (NT 'A', atnA)]
 
@@ -123,18 +123,18 @@ prodsTest = TestCase (assertEqual "for getProdSetsPerState()"
                                                            (MIDDLE 7, 2, [MIDDLE 6, MIDDLE 1])])))
 
 
-ambigATN = [[(INIT 'S', EPS, CHOICE 'S' 1),
-             (CHOICE 'S' 1, T 'a', MIDDLE 1),
-             (MIDDLE 1, EPS, FINAL 'S')],
+ambigATN = [[(INIT 'S', GS EPS, CHOICE 'S' 1),
+             (CHOICE 'S' 1, GS (T 'a'), MIDDLE 1),
+             (MIDDLE 1, GS EPS, FINAL 'S')],
 
-            [(INIT 'S', EPS, CHOICE 'S' 2),
-             (CHOICE 'S' 2, T 'a', MIDDLE 2),
-             (MIDDLE 2, EPS, FINAL 'S')],
+            [(INIT 'S', GS EPS, CHOICE 'S' 2),
+             (CHOICE 'S' 2, GS (T 'a'), MIDDLE 2),
+             (MIDDLE 2, GS EPS, FINAL 'S')],
 
-            [(INIT 'S', EPS, CHOICE 'S' 3),
-             (CHOICE 'S' 3, T 'a', MIDDLE 3),
-             (MIDDLE 3, T 'b', MIDDLE 4),
-             (MIDDLE 4, EPS, FINAL 'S')]]
+            [(INIT 'S', GS EPS, CHOICE 'S' 3),
+             (CHOICE 'S' 3, GS (T 'a'), MIDDLE 3),
+             (MIDDLE 3, GS (T 'b'), MIDDLE 4),
+             (MIDDLE 4, GS EPS, FINAL 'S')]]
 
 ambigEnv = [(NT 'S', ambigATN)]
 
