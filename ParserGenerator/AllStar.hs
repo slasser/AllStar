@@ -2,6 +2,7 @@
 module ParserGenerator.AllStar where
 
 import Data.List
+import qualified Data.Set as DS
 import Test.HUnit
 import Debug.Trace
 
@@ -15,14 +16,40 @@ import Debug.Trace
 data GrammarSymbol nt t = NT nt | T t | EPS deriving (Eq, Show)
 
 -- ATN types
+
+{-
+
 type ATN nt t       = [ATNPath nt t]
 type ATNPath nt t   = [ATNEdge nt t]
 type ATNEdge nt t   = (ATNState nt, ATNEdgeLabel nt t, ATNState nt)
 data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool
-data ATNState nt    = INIT nt | CHOICE nt Int | MIDDLE Int | FINAL nt
-                      deriving (Eq, Ord, Show)
+data ATNState nt    = INIT nt | CHOICE nt Int | MIDDLE Int | FINAL nt deriving
+                      (Eq, Ord, Show)
+
+-}
+
+data ATNState nt = Init nt | Middle nt Int Int | Final nt deriving (Eq, Ord, Show)
+type ATNEdge nt t = (ATNState nt, ATNEdgeLabel nt t, ATNState nt)
+data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool
+type ATNEnv nt t = DS.Set (ATNEdge nt t)
+
+isInit :: ATNState nt -> Bool
+isInit (Init nt) = True
+isInit _ = False
+
+outgoingEdge :: Eq nt => ATNState nt -> ATNEnv nt t -> ATNEdge nt t
+outgoingEdge p atnEnv = let edges = outgoingEdges p atnEnv
+                        in  case edges of
+                              [edge] -> edge
+                              _ -> error "Multiple edges found"
+
+outgoingEdges :: Eq nt => ATNState nt -> ATNEnv nt t -> [ATNEdge nt t]
+outgoingEdges p atnEnv = DS.toList (DS.filter (\(p',_,_) -> p' == p) atnEnv)
+
+
+
 type ATNStack nt    = [ATNState nt]
-type ATNEnv nt t    = [(GrammarSymbol nt t, ATN nt t)]
+-- type ATNEnv nt t    = [(GrammarSymbol nt t, ATN nt t)]
 type ATNConfig nt   = (ATNState nt, Int, ATNStack nt)
 
 -- DFA types
@@ -49,6 +76,8 @@ emptyDerivation = []
 
 --------------------------------AUXILIARY FUNCTIONS-----------------------------
 
+{-
+
 -- Return the ATN edge with ATN state p on the left
 -- Q: Should I handle the "no edge found" case here, or in the caller?
 outgoingEdge :: Eq nt => ATNState nt -> ATNEnv nt t -> Maybe (ATNEdge nt t)
@@ -59,6 +88,8 @@ outgoingEdge p atnEnv = let edges = (concat . concat) (map snd atnEnv)
 outgoingEdges :: Eq nt => ATNState nt -> ATNEnv nt t -> [ATNEdge nt t]
 outgoingEdges p atnEnv = let edges = (concat . concat) (map snd atnEnv)
                          in  filter (\(p', t, q) -> p == p') edges
+
+-}
 
 -- Better way to ensure that the parameter is a D DFA state?
 getConflictSetsPerLoc :: (Eq nt, Ord nt) => DFAState nt -> [[ATNConfig nt]]
@@ -109,7 +140,7 @@ parse :: (Eq nt, Show nt, Ord nt, Show tok, Eq (Label tok), Show (Label tok), To
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
         case (currState, startSym) of
-          (FINAL c, NT c') ->
+          (Final c, NT c') ->
             if c == c' then
               Right (Node c subtrees)
             else
@@ -120,8 +151,8 @@ parse input startSym atnEnv useCache =
                             "and there's no ATN state to return to")
           (_, _) ->
             case (outgoingEdge currState atnEnv) of
-              Nothing -> error ("No matching edge found for " ++ (show currState))
-              Just (p, t, q) ->
+              -- Nothing -> error ("No matching edge found for " ++ (show currState))
+              (p, t, q) ->
                 case (t, input) of
                   (GS (T b), [])     -> error "Input has been exhausted"
                   (GS (T b), c : cs) -> if b == getLabel c then
@@ -132,17 +163,21 @@ parse input startSym atnEnv useCache =
                                         in  case adaptivePredict (NT b) input stack' dfaEnv of  -- Pattern for referring to (NT b)?
                                               Nothing -> Left ("Couldn't find a path through ATN " ++ show b ++
                                                                " with input " ++ show input)
-                                              Just (i, dfaEnv') -> parseLoop input (CHOICE b i) stack' dfaEnv' [] (subtrees : astStack)
+                                              Just (i, dfaEnv') -> parseLoop input (Middle b i 0) stack' dfaEnv' [] (subtrees : astStack) -- was (CHOICE b i)
                   (GS EPS, _)        -> parseLoop input q stack dfaEnv subtrees astStack
                   (PRED _, _)        -> error "not implemented"
 
-      initialDfaEnv            = (map (\(sym, _) -> (sym, [])) atnEnv)
+      initialDfaEnv = DS.toList (DS.foldr (\(p,_,_) ntNames ->
+                                  case p of Init ntName -> DS.insert (NT ntName, []) ntNames
+                                            _ -> ntNames)
+                                DS.empty
+                                atnEnv)
       
   in  case startSym of (NT c) ->
                          case adaptivePredict startSym input emptyStack initialDfaEnv of
                            Nothing -> Left ("Couldn't find a path through ATN " ++ show c ++
                                             " with input " ++ show input)
-                           Just (iStart, initialDfaEnv') -> parseLoop input (CHOICE c iStart) emptyStack initialDfaEnv' [] emptyStack
+                           Just (iStart, initialDfaEnv') -> parseLoop input (Middle c iStart 0) emptyStack initialDfaEnv' [] emptyStack
                        _ -> error "Start symbol must be a nonterminal"
 
   where
@@ -165,8 +200,8 @@ parse input startSym atnEnv useCache =
                   []           -> []
                   path : paths ->
                     case path of
-                      (INIT _, _, CHOICE ntName i) : edges ->
-                        (closure [] (CHOICE ntName i, i, stack)) ++
+                      (Init _, _, Middle ntName i j) : edges ->
+                        (closure [] (Middle ntName i j, i, stack)) ++
                         loopOverAtnPaths paths
                       _  ->
                         error "ATN must begin with an edge from an INIT to a CHOICE"
@@ -191,8 +226,8 @@ parse input startSym atnEnv useCache =
                 (_, GS (T _), _) : es'       ->
                   loopOverEdges es'
         in  case (p, gamma) of
-          (FINAL _, [])         -> [currConfig]
-          (FINAL _, q : gamma') -> currConfig : closure busy' (q, i, gamma')
+          (Final _, [])         -> [currConfig]
+          (Final _, q : gamma') -> currConfig : closure busy' (q, i, gamma')
           _                     -> currConfig : loopOverEdges pEdges
 
     sllPredict sym input d0 stack initialDfaEnv =
