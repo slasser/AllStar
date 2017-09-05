@@ -20,6 +20,6 @@ library
   exposed-modules:     ParserGenerator.AllStar, Test.AllStarTests
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.9 && <4.10, HUnit >=1.3 && <1.4
+  build-depends:       base >=4.9 && <4.10, HUnit
   -- hs-source-dirs:      
   default-language:    Haskell2010
