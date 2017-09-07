@@ -30,24 +30,23 @@ data ATNState nt    = INIT nt | CHOICE nt Int | MIDDLE Int | FINAL nt deriving
 
 data ATNState nt = Init nt | Middle nt Int Int | Final nt deriving (Eq, Ord, Show)
 type ATNEdge nt t = (ATNState nt, ATNEdgeLabel nt t, ATNState nt)
-data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool
+data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool deriving (Eq, Ord)
 type ATNEnv nt t = DS.Set (ATNEdge nt t)
 
 isInit :: ATNState nt -> Bool
 isInit (Init nt) = True
 isInit _ = False
 
-outgoingEdge :: Eq nt => ATNState nt -> ATNEnv nt t -> ATNEdge nt t
+outgoingEdge :: (Eq nt, Show nt) => ATNState nt -> ATNEnv nt t -> ATNEdge nt t
 outgoingEdge p atnEnv = let edges = outgoingEdges p atnEnv
                         in  case edges of
                               [edge] -> edge
                               _ -> error "Multiple edges found"
 
-outgoingEdges :: Eq nt => ATNState nt -> ATNEnv nt t -> [ATNEdge nt t]
-outgoingEdges p atnEnv = let edges = DS.toList (DS.filter (\(p',_,_) -> p' == p) atnEnv)
-                         in  case edges of
-                               [] -> error "No edges found"
-                               e : es -> edges
+-- Do I need to make sure there's at least one outgoing edge, or should that
+-- be handled by an earlier check to make sure the grammar/ATN is well-formed?
+outgoingEdges :: (Eq nt, Show nt) => ATNState nt -> ATNEnv nt t -> [ATNEdge nt t]
+outgoingEdges p atnEnv = DS.toList (DS.filter (\(p',_,_) -> p' == p) atnEnv)
 
 
 
