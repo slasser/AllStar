@@ -13,7 +13,7 @@ import Debug.Trace
 -- Consider more nested representation of ATN, where integer path IDs are keys
 
 -- grammar types
-data GrammarSymbol nt t = NT nt | T t | EPS deriving (Eq, Show)
+data GrammarSymbol nt t = NT nt | T t | EPS deriving (Eq, Ord, Show)
 
 -- ATN types
 
@@ -44,7 +44,10 @@ outgoingEdge p atnEnv = let edges = outgoingEdges p atnEnv
                               _ -> error "Multiple edges found"
 
 outgoingEdges :: Eq nt => ATNState nt -> ATNEnv nt t -> [ATNEdge nt t]
-outgoingEdges p atnEnv = DS.toList (DS.filter (\(p',_,_) -> p' == p) atnEnv)
+outgoingEdges p atnEnv = let edges = DS.toList (DS.filter (\(p',_,_) -> p' == p) atnEnv)
+                         in  case edges of
+                               [] -> error "No edges found"
+                               e : es -> edges
 
 
 
@@ -55,7 +58,7 @@ type ATNConfig nt   = (ATNState nt, Int, ATNStack nt)
 -- DFA types
 type DFA nt t       = [DFAEdge nt t]
 type DFAEdge nt t   = (DFAState nt, t, DFAState nt)
-data DFAState nt    = Dinit [ATNConfig nt] | D [ATNConfig nt] | F Int | Derror deriving (Eq, Show)
+data DFAState nt    = Dinit [ATNConfig nt] | D [ATNConfig nt] | F Int | Derror deriving (Eq, Ord, Show)
 type DFAEnv nt t    = [(GrammarSymbol nt t, DFA nt t)]
 
 -- Input sequence type
@@ -135,7 +138,7 @@ bind k v ((k', v') : al') = if k == k' then (k, v) : al' else (k', v') : bind k 
 --------------------------------ALL(*) FUNCTIONS--------------------------------
 -- should parse() also return residual input sequence?
 
-parse :: (Eq nt, Show nt, Ord nt, Show tok, Eq (Label tok), Show (Label tok), Token tok) =>
+parse :: (Eq nt, Show nt, Ord nt, Eq (Label tok), Show (Label tok), Ord (Label tok), Token tok, Show tok) =>
          [tok] -> GrammarSymbol nt (Label tok) -> ATNEnv nt (Label tok) -> Bool -> Either String (AST nt tok)
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
@@ -192,20 +195,17 @@ parse input startSym atnEnv useCache =
                         in sllPredict sym input d0 stack dfaEnv
 
     startState sym stack =
-      case lookup sym atnEnv of
-        Nothing   -> trace (error ("sS No ATN for symbol " ++ show sym)) Derror
-        Just atn  ->
-          let loopOverAtnPaths atn =
-                case atn of
-                  []           -> []
-                  path : paths ->
-                    case path of
-                      (Init _, _, Middle ntName i j) : edges ->
-                        (closure [] (Middle ntName i j, i, stack)) ++
-                        loopOverAtnPaths paths
-                      _  ->
-                        error "ATN must begin with an edge from an INIT to a CHOICE"
-          in  D (loopOverAtnPaths atn)
+      case sym of
+        NT ntName ->
+          let initEdges = outgoingEdges (Init ntName) atnEnv
+              loopOverAtnPaths initEdges =
+                case initEdges of
+                  [] -> []
+                  (Init _, GS EPS, q@(Middle _ i _)) : es ->
+                    (closure [] (q, i, stack)) ++ loopOverAtnPaths es
+                  _ -> error "ATN path must begin with an epsilon edge from Init to Choice"
+          in  D (loopOverAtnPaths initEdges)
+        _ -> error "Symbol passed to startState must be a nonterminal"
 
     closure busy currConfig =
       if elem currConfig busy then
@@ -218,7 +218,7 @@ parse input startSym atnEnv useCache =
               case es of
                 []                      -> [] 
                 (_, GS (NT ntName), q) : es' ->
-                  closure busy' (INIT ntName, i, q : gamma) ++
+                  closure busy' (Init ntName, i, q : gamma) ++
                   loopOverEdges es'
                 (_, GS EPS, q) : es'       ->
                   closure busy' (q, i, gamma) ++
