@@ -2,3 +2,5 @@
 *.o
 *.hi
 *~
+stack.yaml
+/.stack-work
