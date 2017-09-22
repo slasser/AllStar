@@ -30,7 +30,7 @@ data ATNState nt    = INIT nt | CHOICE nt Int | MIDDLE Int | FINAL nt deriving
 
 data ATNState nt = Init nt | Middle nt Int Int | Final nt deriving (Eq, Ord, Show)
 type ATNEdge nt t = (ATNState nt, ATNEdgeLabel nt t, ATNState nt)
-data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool deriving (Eq, Ord)
+data ATNEdgeLabel nt t = GS (GrammarSymbol nt t) | PRED Bool deriving (Eq, Ord, Show)
 type ATNEnv nt t = DS.Set (ATNEdge nt t)
 
 isInit :: ATNState nt -> Bool
