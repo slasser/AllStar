@@ -158,7 +158,8 @@ parse input startSym atnEnv useCache =
                 case (t, input) of
                   (GS (T b), [])     -> error "Input has been exhausted"
                   (GS (T b), c : cs) -> if b == getLabel c then
-                                          parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack -- changed from Leaf b
+                                          trace (show b ++ " " ++ show (getLabel c))
+                                          (parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack) -- changed from Leaf b
                                         else
                                           Left ("remaining input: " ++ show input)
                   (GS (NT b), _)     -> let stack'       = q : stack
@@ -179,7 +180,7 @@ parse input startSym atnEnv useCache =
                          case adaptivePredict startSym input emptyStack initialDfaEnv of
                            Nothing -> Left ("Couldn't find a path through ATN " ++ show c ++
                                             " with input " ++ show input)
-                           Just (iStart, initialDfaEnv') -> parseLoop input (Middle c iStart 0) emptyStack initialDfaEnv' [] emptyStack
+                           Just (iStart, initialDfaEnv') -> trace ("\niStart: " ++ show iStart ++ "\n") (parseLoop input (Middle c iStart 0) emptyStack initialDfaEnv' [] emptyStack)
                        _ -> error "Start symbol must be a nonterminal"
 
   where
