@@ -6,6 +6,10 @@ import qualified Data.Set as DS
 import Test.HUnit
 import Debug.Trace
 
+import Data.GraphViz
+import Data.Graph.Inductive.Graph
+import Data.Graph.Inductive.PatriciaTree
+
 --------------------------------TYPE DEFINITIONS--------------------------------
 
 -- Add another synonym for NT names
@@ -180,7 +184,8 @@ parse input startSym atnEnv useCache =
                          case adaptivePredict startSym input emptyStack initialDfaEnv of
                            Nothing -> Left ("Couldn't find a path through ATN " ++ show c ++
                                             " with input " ++ show input)
-                           Just (iStart, initialDfaEnv') -> trace ("\niStart: " ++ show iStart ++ "\n") (parseLoop input (Middle c iStart 0) emptyStack initialDfaEnv' [] emptyStack)
+                           Just (iStart, initialDfaEnv') -> trace ("\niStart: " ++ show iStart ++ "\n")
+                                                            (parseLoop input (Middle c iStart 0)  emptyStack initialDfaEnv' [] emptyStack)
                        _ -> error "Start symbol must be a nonterminal"
 
   where

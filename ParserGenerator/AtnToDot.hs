@@ -1,3 +1,5 @@
+module ParserGenerator.AtnToDot where
+
 import Data.Set as S
 import Data.Map as M
 import Data.List as L
@@ -60,12 +62,15 @@ toDotGraph g = let params = Params { isDirected       = True
 
 
 -- Took these from an online example
-createImage :: PrintDotRepr dg n => (FilePath, dg n) -> IO FilePath
-createImage (n, g) = createImageInDir "." n Png g
+createImage :: PrintDotRepr dg n => FilePath -> dg n -> IO FilePath
+createImage n g = createImageInDir "." n Png g
 
 createImageInDir :: PrintDotRepr dg n => FilePath -> FilePath -> GraphvizOutput -> dg n -> IO FilePath
 createImageInDir d n o g = GV.addExtension (runGraphvizCommand Dot g) o (combine d n)
 -- </end>
+
+atnToImage :: (Ord nt, Show nt, Show t) => ATNEnv nt t -> FilePath -> IO FilePath
+atnToImage atn fname = ((createImage fname) . toDotGraph . fromATN) atn
 
 
 atn = S.fromList [ -- First path through the 'S' ATN
