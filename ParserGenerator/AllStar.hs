@@ -145,34 +145,38 @@ parse :: (Eq nt, Show nt, Ord nt, Eq (Label tok), Show (Label tok), Ord (Label t
          [tok] -> GrammarSymbol nt (Label tok) -> ATNEnv nt (Label tok) -> Bool -> Either String (AST nt tok)
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
-        case (currState, startSym) of
-          (Final c, NT c') ->
-            if c == c' then
-              Right (Node c subtrees)
-            else
-              case (stack, astStack) of
-                (q : stack', leftSiblings : astStack') ->
-                  parseLoop input q stack' dfaEnv (leftSiblings ++ [Node c subtrees]) astStack'
-                _ -> error ("Reached a final ATN state, but parse is incomplete " ++
-                            "and there's no ATN state to return to")
-          (_, _) ->
-            case (outgoingEdge currState atnEnv) of
-              -- Nothing -> error ("No matching edge found for " ++ (show currState))
-              (p, t, q) ->
-                case (t, input) of
-                  (GS (T b), [])     -> error "Input has been exhausted"
-                  (GS (T b), c : cs) -> if b == getLabel c then
-                                          trace (show b ++ " " ++ show (getLabel c))
-                                          (parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack) -- changed from Leaf b
-                                        else
-                                          Left ("remaining input: " ++ show input)
-                  (GS (NT b), _)     -> let stack'       = q : stack
-                                        in  case adaptivePredict (NT b) input stack' dfaEnv of  -- Pattern for referring to (NT b)?
-                                              Nothing -> Left ("Couldn't find a path through ATN " ++ show b ++
-                                                               " with input " ++ show input)
-                                              Just (i, dfaEnv') -> parseLoop input (Middle b i 0) stack' dfaEnv' [] (subtrees : astStack) -- was (CHOICE b i)
-                  (GS EPS, _)        -> parseLoop input q stack dfaEnv subtrees astStack
-                  (PRED _, _)        -> error "not implemented"
+        trace ("=== Beginning parseLoop ===\n" ++
+               "input: " ++ show input ++ "\n" ++
+               "currState: " ++ show currState ++ "\n" ++
+               "stack: " ++ show stack ++ "\n")
+        (case (currState, startSym) of
+           (Final c, NT c') ->
+             if c == c' then
+               Right (Node c subtrees)
+             else
+               case (stack, astStack) of
+                 (q : stack', leftSiblings : astStack') ->
+                   parseLoop input q stack' dfaEnv (leftSiblings ++ [Node c subtrees]) astStack'
+                 _ -> error ("Reached a final ATN state, but parse is incomplete " ++
+                             "and there's no ATN state to return to")
+           (_, _) ->
+             case (outgoingEdge currState atnEnv) of
+               -- Nothing -> error ("No matching edge found for " ++ (show currState))
+               (p, t, q) ->
+                 case (t, input) of
+                   (GS (T b), [])     -> error "Input has been exhausted"
+                   (GS (T b), c : cs) -> if b == getLabel c then
+                                           trace (show b ++ " " ++ show (getLabel c))
+                                           (parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack) -- changed from Leaf b
+                                         else
+                                           Left ("remaining input: " ++ show input)
+                   (GS (NT b), _)     -> let stack'       = q : stack
+                                         in  case adaptivePredict (NT b) input stack' dfaEnv of  -- Pattern for referring to (NT b)?
+                                               Nothing -> Left ("Couldn't find a path through ATN " ++ show b ++
+                                                                " with input " ++ show input)
+                                               Just (i, dfaEnv') -> parseLoop input (Middle b i 0) stack' dfaEnv' [] (subtrees : astStack) -- was (CHOICE b i)
+                   (GS EPS, _)        -> parseLoop input q stack dfaEnv subtrees astStack
+                   (PRED _, _)        -> error "not implemented")
 
       initialDfaEnv = DS.toList (DS.foldr (\(p,_,_) ntNames ->
                                   case p of Init ntName -> DS.insert (NT ntName, []) ntNames
