@@ -196,7 +196,7 @@ parse input startSym atnEnv useCache =
 
     -- adaptivePredict :: (GrammarSymbol nt (Label tok)) -> [tok] -> ATNStack nt -> DFAEnv nt (Label tok) -> Maybe (Int, DFAEnv nt (Label tok))
     adaptivePredict sym input stack dfaEnv  =
-      trace ("\tBeginning adaptivePredict\n" ++
+      trace ("\t=== Beginning adaptivePredict===\n" ++
              "\tsym: " ++ (show sym) ++ "\n" ++
              "\tinput: " ++ (show input) ++ "\n" ++
              "\tstack: " ++ (show stack) ++ "\n")
@@ -245,7 +245,11 @@ parse input startSym atnEnv useCache =
 
     sllPredict sym input d0 stack initialDfaEnv =
       let predictionLoop d tokens dfaEnv =
-            case tokens of
+            trace ("\t\t\t=== Beginning sllPredict\n" ++
+                   "\t\t\td: " ++ show d ++ "\n" ++
+                   "\t\t\ttokens: " ++ show tokens ++ "\n" ++
+                   "\t\t\tdfaEnv: " ++ show dfaEnv ++ "\n")
+            (case tokens of
               []     -> Nothing -- Does the empty token sequence ever indicate that the grammar is ambiguous?
               t : ts ->
                 let (d', dfaEnv') =
@@ -271,8 +275,9 @@ parse input startSym atnEnv useCache =
                         in  if stackSensitive then
                               Just (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
-                              predictionLoop d' ts dfaEnv'
-      in  predictionLoop d0 input initialDfaEnv
+                              predictionLoop d' ts dfaEnv')
+      in  trace ("\t\t=== Beginning sllPredict\n")
+                (predictionLoop d0 input initialDfaEnv)
 
     -- This function looks a little fishy -- come back to it and think about what each case represents
     -- Also, maybe it should return a Maybe type so that it can propagate a Nothing value upwards
