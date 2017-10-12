@@ -196,12 +196,16 @@ parse input startSym atnEnv useCache =
 
     -- adaptivePredict :: (GrammarSymbol nt (Label tok)) -> [tok] -> ATNStack nt -> DFAEnv nt (Label tok) -> Maybe (Int, DFAEnv nt (Label tok))
     adaptivePredict sym input stack dfaEnv  =
-      case lookup sym dfaEnv of
-        Nothing  -> error ("No DFA found for " ++ show sym)
-        Just dfa -> let d0  = case findInitialState dfa of
-                                Just d0 -> d0
-                                Nothing -> startState sym emptyStack
-                        in sllPredict sym input d0 stack dfaEnv
+      trace ("\tBeginning adaptivePredict\n" ++
+             "\tsym: " ++ (show sym) ++ "\n" ++
+             "\tinput: " ++ (show input) ++ "\n" ++
+             "\tstack: " ++ (show stack) ++ "\n")
+      (case lookup sym dfaEnv of
+         Nothing  -> error ("No DFA found for " ++ show sym)
+         Just dfa -> let d0  = case findInitialState dfa of
+                                 Just d0 -> d0
+                                 Nothing -> startState sym emptyStack
+                     in  sllPredict sym input d0 stack dfaEnv)
 
     startState sym stack =
       case sym of
