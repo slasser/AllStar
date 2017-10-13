@@ -158,6 +158,20 @@ ambigParseTest2 = TestCase (assertEqual "for parse [a b],"
                                                   Leaf 'b']))
                                         (parse ['a', 'b'] (NT 'S') ambigATNEnv True))
 
+-- ATN for a grammar that accepts either one or two 8s
+atomATN = DS.fromList [(Init "start",GS EPS,Middle "start" 0 0),
+                       (Init "s_expr",GS EPS,Middle "s_expr" 1 0),
+                       (Init "s_expr",GS EPS,Middle "s_expr" 2 0),
+                       (Init "atom",GS EPS,Middle "atom" 3 0),
+                       (Middle "start" 0 0,GS (NT "s_expr"),Middle "start" 0 1),
+                       (Middle "start" 0 1,GS EPS,Final "start"),
+                       (Middle "s_expr" 1 0,GS (NT "atom"),Middle "s_expr" 1 1),
+                       (Middle "s_expr" 1 1,GS EPS,Final "s_expr"),
+                       (Middle "s_expr" 2 0,GS (NT "atom"),Middle "s_expr" 2 1),
+                       (Middle "s_expr" 2 1,GS (NT "atom"),Middle "s_expr" 2 2),
+                       (Middle "s_expr" 2 2,GS EPS,Final "s_expr"),
+                       (Middle "atom" 3 0,GS (T '8'),Middle "atom" 3 1),
+                       (Middle "atom" 3 1,GS EPS,Final "atom")]
         
 tests = [TestLabel "parseTest1"    parseTest1,
          TestLabel "parseTest2"    parseTest2,

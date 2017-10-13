@@ -166,7 +166,6 @@ parse input startSym atnEnv useCache =
                  case (t, input) of
                    (GS (T b), [])     -> error "Input has been exhausted"
                    (GS (T b), c : cs) -> if b == getLabel c then
-                                           trace (show b ++ " " ++ show (getLabel c))
                                            (parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack) -- changed from Leaf b
                                          else
                                            Left ("remaining input: " ++ show input)
@@ -188,8 +187,7 @@ parse input startSym atnEnv useCache =
                          case adaptivePredict startSym input emptyStack initialDfaEnv of
                            Nothing -> Left ("Couldn't find a path through ATN " ++ show c ++
                                             " with input " ++ show input)
-                           Just (iStart, initialDfaEnv') -> trace ("\niStart: " ++ show iStart ++ "\n")
-                                                            (parseLoop input (Middle c iStart 0)  emptyStack initialDfaEnv' [] emptyStack)
+                           Just (iStart, initialDfaEnv') -> (parseLoop input (Middle c iStart 0)  emptyStack initialDfaEnv' [] emptyStack)
                        _ -> error "Start symbol must be a nonterminal"
 
   where
@@ -245,13 +243,22 @@ parse input startSym atnEnv useCache =
 
     sllPredict sym input d0 stack initialDfaEnv =
       let predictionLoop d tokens dfaEnv =
-            trace ("\t\t\t=== Beginning sllPredict\n" ++
+            trace ("\t\t\t=== Beginning predictionLoop\n" ++
                    "\t\t\td: " ++ show d ++ "\n" ++
-                   "\t\t\ttokens: " ++ show tokens ++ "\n" ++
-                   "\t\t\tdfaEnv: " ++ show dfaEnv ++ "\n")
+                   "\t\t\ttokens: " ++ show tokens ++ "\n")
             (case tokens of
-              []     -> Nothing -- Does the empty token sequence ever indicate that the grammar is ambiguous?
-              t : ts ->
+               -- []     -> Nothing -- What I had
+               [] -> (case d of
+                        Derror -> Nothing
+                        F i    -> Just (i, dfaEnv)
+                        D atnConfigs -> let isFinalStateForSym (NT x, Final y) = x == y
+                                            isFinalStateForSym _          = False
+                                            finalConfigs = filter (\(p,i,gamma) -> isFinalStateForSym (sym, p)) atnConfigs
+                                        in  case nub (map (\(_, i, _) -> i) finalConfigs) of
+                                              [i] -> Just (i, dfaEnv)
+                                              []  -> error ("Input exhausted, no final configs found")
+                                              _   -> error ("Input exhausted, more than one final config found"))
+               t : ts ->
                 let (d', dfaEnv') =
                       if useCache then
                         case lookup sym dfaEnv of
@@ -276,7 +283,7 @@ parse input startSym atnEnv useCache =
                               Just (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
                               predictionLoop d' ts dfaEnv')
-      in  trace ("\t\t=== Beginning sllPredict\n")
+      in  trace ("\t\t=== Beginning sllPredict\n\t\tsym: " ++ show sym)
                 (predictionLoop d0 input initialDfaEnv)
 
     -- This function looks a little fishy -- come back to it and think about what each case represents
