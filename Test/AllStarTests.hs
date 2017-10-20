@@ -172,6 +172,27 @@ atomATN = DS.fromList [(Init "start",GS EPS,Middle "start" 0 0),
                        (Middle "s_expr" 2 2,GS EPS,Final "s_expr"),
                        (Middle "atom" 3 0,GS (T '8'),Middle "atom" 3 1),
                        (Middle "atom" 3 1,GS EPS,Final "atom")]
+
+
+parenItemSeqATN = DS.fromList [(Init "start",GS EPS,Middle "start" 0 0),
+                               (Init "list",GS EPS,Middle "list" 1 0),
+                               (Init "items",GS EPS,Middle "items" 2 0),
+                               (Init "items",GS EPS,Middle "items" 3 0),
+                               (Init "atom",GS EPS,Middle "atom" 4 0),
+                               (Middle "start" 0 0,GS (NT "list"),Middle "start" 0 1),
+                               (Middle "start" 0 1,GS EPS,Final "start"),
+                               (Middle "list" 1 0,GS (T '('),Middle "list" 1 1),
+                               (Middle "list" 1 1,GS (NT "items"),Middle "list" 1 2),
+                               (Middle "list" 1 2,GS (T ')'),Middle "list" 1 3),
+                               (Middle "list" 1 3,GS EPS,Final "list"),
+                               (Middle "items" 2 0,GS (NT "atom"),Middle "items" 2 1),
+                               (Middle "items" 2 1,GS EPS,Final "items"),
+                               (Middle "items" 3 0,GS (NT "atom"),Middle "items" 3 1),
+                               (Middle "items" 3 1,GS (NT "items"),Middle "items" 3 2),
+                               (Middle "items" 3 2,GS EPS,Final "items"),
+                               (Middle "atom" 4 0,GS (T '8'),Middle "atom" 4 1),
+                               (Middle "atom" 4 1,GS EPS,Final "atom")]
+
         
 tests = [TestLabel "parseTest1"    parseTest1,
          TestLabel "parseTest2"    parseTest2,

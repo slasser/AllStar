@@ -192,17 +192,16 @@ parse input startSym atnEnv useCache =
 
   where
 
-    -- adaptivePredict :: (GrammarSymbol nt (Label tok)) -> [tok] -> ATNStack nt -> DFAEnv nt (Label tok) -> Maybe (Int, DFAEnv nt (Label tok))
     adaptivePredict sym input stack dfaEnv  =
-      trace ("\t=== Beginning adaptivePredict===\n" ++
-             "\tsym: " ++ (show sym) ++ "\n" ++
-             "\tinput: " ++ (show input) ++ "\n" ++
-             "\tstack: " ++ (show stack) ++ "\n")
+      trace ("=== Beginning adaptivePredict===\n" ++
+             "sym: " ++ (show sym) ++ "\n" ++
+             "input: " ++ (show input) ++ "\n" ++
+             "stack: " ++ (show stack) ++ "\n")
       (case lookup sym dfaEnv of
          Nothing  -> error ("No DFA found for " ++ show sym)
          Just dfa -> let d0  = case findInitialState dfa of
                                  Just d0 -> d0
-                                 Nothing -> startState sym emptyStack
+                                 Nothing -> startState sym stack -- was emptyStack
                      in  sllPredict sym input d0 stack dfaEnv)
 
     startState sym stack =
@@ -243,14 +242,14 @@ parse input startSym atnEnv useCache =
 
     sllPredict sym input d0 stack initialDfaEnv =
       let predictionLoop d tokens dfaEnv =
-            trace ("\t\t\t=== Beginning predictionLoop\n" ++
-                   "\t\t\td: " ++ show d ++ "\n" ++
-                   "\t\t\ttokens: " ++ show tokens ++ "\n")
+            trace ("=== Beginning predictionLoop ===\n" ++
+                   "d: " ++ show d ++ "\n" ++
+                   "tokens: " ++ show tokens ++ "\n")
             (case tokens of
                -- []     -> Nothing -- What I had
                [] -> (case d of
                         Derror -> Nothing
-                        F i    -> Just (i, dfaEnv)
+                        F i    -> trace ("SLL prediction: " ++ show i ++ "\n") Just (i, dfaEnv)
                         D atnConfigs -> let isFinalStateForSym (NT x, Final y) = x == y
                                             isFinalStateForSym _          = False
                                             finalConfigs = filter (\(p,i,gamma) -> isFinalStateForSym (sym, p)) atnConfigs
@@ -272,7 +271,7 @@ parse input startSym atnEnv useCache =
                         (target d t, dfaEnv) -- don't use the cache, or add any new information to it
                 in  case d' of
                       Derror            -> Nothing
-                      F i               -> Just (i, dfaEnv')
+                      F i               -> trace ("SLL prediction: " ++ show i ++ "\n") Just (i, dfaEnv')
                       D atnConfigs      ->
                         let conflictSets   = getConflictSetsPerLoc d'
                             prodSets       = getProdSetsPerState d'
@@ -283,7 +282,7 @@ parse input startSym atnEnv useCache =
                               Just (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
                               predictionLoop d' ts dfaEnv')
-      in  trace ("\t\t=== Beginning sllPredict\n\t\tsym: " ++ show sym)
+      in  trace ("=== Beginning sllPredict ===\nsym: " ++ show sym)
                 (predictionLoop d0 input initialDfaEnv)
 
     -- This function looks a little fishy -- come back to it and think about what each case represents
