@@ -145,10 +145,10 @@ parse :: (Eq nt, Show nt, Ord nt, Eq (Label tok), Show (Label tok), Ord (Label t
          [tok] -> GrammarSymbol nt (Label tok) -> ATNEnv nt (Label tok) -> Bool -> Either String (AST nt tok)
 parse input startSym atnEnv useCache =
   let parseLoop input currState stack dfaEnv subtrees astStack =
-        trace ("=== Beginning parseLoop ===\n" ++
-               "input: " ++ show input ++ "\n" ++
-               "currState: " ++ show currState ++ "\n" ++
-               "stack: " ++ show stack ++ "\n")
+        --trace ("=== Beginning parseLoop ===\n" ++
+        --      "input: " ++ show input ++ "\n" ++
+        --       "currState: " ++ show currState ++ "\n" ++
+        --       "stack: " ++ show stack ++ "\n")
         (case (currState, startSym) of
            (Final c, NT c') ->
              if c == c' then
@@ -164,7 +164,7 @@ parse input startSym atnEnv useCache =
                -- Nothing -> error ("No matching edge found for " ++ (show currState))
                (p, t, q) ->
                  case (t, input) of
-                   (GS (T b), [])     -> error "Input has been exhausted"
+                   (GS (T b), [])     -> Left ("input has been exhausted")
                    (GS (T b), c : cs) -> if b == getLabel c then
                                            (parseLoop cs q stack dfaEnv (subtrees ++ [Leaf c]) astStack) -- changed from Leaf b
                                          else
@@ -193,10 +193,10 @@ parse input startSym atnEnv useCache =
   where
 
     adaptivePredict sym input stack dfaEnv  =
-      trace ("=== Beginning adaptivePredict===\n" ++
-             "sym: " ++ (show sym) ++ "\n" ++
-             "input: " ++ (show input) ++ "\n" ++
-             "stack: " ++ (show stack) ++ "\n")
+      --trace ("=== Beginning adaptivePredict===\n" ++
+      --       "sym: " ++ (show sym) ++ "\n" ++
+      --       "input: " ++ (show input) ++ "\n" ++
+      --       "stack: " ++ (show stack) ++ "\n")
       (case lookup sym dfaEnv of
          Nothing  -> error ("No DFA found for " ++ show sym)
          Just dfa -> let d0  = case findInitialState dfa of
@@ -242,14 +242,15 @@ parse input startSym atnEnv useCache =
 
     sllPredict sym input d0 stack initialDfaEnv =
       let predictionLoop d tokens dfaEnv =
-            trace ("=== Beginning predictionLoop ===\n" ++
-                   "d: " ++ show d ++ "\n" ++
-                   "tokens: " ++ show tokens ++ "\n")
+            --trace ("=== Beginning predictionLoop ===\n" ++
+            --       "d: " ++ show d ++ "\n" ++
+            --       "tokens: " ++ show tokens ++ "\n")
             (case tokens of
                -- []     -> Nothing -- What I had
                [] -> (case d of
                         Derror -> Nothing
-                        F i    -> trace ("SLL prediction: " ++ show i ++ "\n") Just (i, dfaEnv)
+                        F i    -> --trace ("SLL prediction: " ++ show i ++ "\n")
+                                  Just (i, dfaEnv)
                         D atnConfigs -> let isFinalStateForSym (NT x, Final y) = x == y
                                             isFinalStateForSym _          = False
                                             finalConfigs = filter (\(p,i,gamma) -> isFinalStateForSym (sym, p)) atnConfigs
@@ -271,7 +272,8 @@ parse input startSym atnEnv useCache =
                         (target d t, dfaEnv) -- don't use the cache, or add any new information to it
                 in  case d' of
                       Derror            -> Nothing
-                      F i               -> trace ("SLL prediction: " ++ show i ++ "\n") Just (i, dfaEnv')
+                      F i               -> --trace ("SLL prediction: " ++ show i ++ "\n")
+                                           Just (i, dfaEnv')
                       D atnConfigs      ->
                         let conflictSets   = getConflictSetsPerLoc d'
                             prodSets       = getProdSetsPerState d'
@@ -282,7 +284,7 @@ parse input startSym atnEnv useCache =
                               Just (llPredict sym input stack, initialDfaEnv) -- Again, do we have to discard previous updates to the DFA?
                             else
                               predictionLoop d' ts dfaEnv')
-      in  trace ("=== Beginning sllPredict ===\nsym: " ++ show sym)
+      in  --trace ("=== Beginning sllPredict ===\nsym: " ++ show sym)
                 (predictionLoop d0 input initialDfaEnv)
 
     -- This function looks a little fishy -- come back to it and think about what each case represents
